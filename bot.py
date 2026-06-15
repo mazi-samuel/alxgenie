@@ -748,7 +748,7 @@ def start_ping_server():
     import threading
     import os
 
-    class PingHandler(http.server.SimpleHTTPRequestHandler):
+    class PingHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
             self.send_header("Content-type", "text/plain")
