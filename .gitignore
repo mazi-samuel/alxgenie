@@ -1,0 +1,20 @@
+# Secrets & Credentials
+.env
+credentials.json
+
+# Databases
+*.db
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local IDE/OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

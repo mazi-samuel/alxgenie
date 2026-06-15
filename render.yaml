@@ -1,0 +1,32 @@
+services:
+  - type: worker
+    name: telegram-assistant-bot
+    env: docker
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+      - key: ADMIN_USER_IDS
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        sync: false
+      - key: SHEET_MODE
+        value: column
+      - key: COL_NAME
+        value: First name
+      - key: COL_DATE
+        value: Course graduation date
+      - key: COL_WEEK
+        value: Course graduation date
+      - key: COL_PROGRAM
+        value: Program name
+      - key: COL_COURSE
+        value: Course name
+      - key: TIMEZONE
+        value: Africa/Lagos
+      - key: WEEKLY_POST_DAY
+        value: mon
+      - key: WEEKLY_POST_TIME
+        value: "09:00"
