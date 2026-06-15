@@ -760,12 +760,17 @@ def start_ping_server():
             return
 
     port = int(os.getenv("PORT", "8080"))
-    socketserver.TCPServer.allow_reuse_address = True
-    server = socketserver.TCPServer(("", port), PingHandler)
-    
-    t = threading.Thread(target=server.serve_forever, daemon=True)
-    t.start()
-    logger.info(f"Started HTTP ping server on port {port} to keep the bot alive on Render Free Tier.")
+    try:
+        socketserver.TCPServer.allow_reuse_address = True
+        server = socketserver.TCPServer(("", port), PingHandler)
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        logger.info(f"Started HTTP ping server on port {port} to keep the bot alive on Render Free Tier.")
+    except Exception as e:
+        logger.warning(
+            f"Could not start HTTP ping server on port {port}: {e}. "
+            "This is normal when running locally on Windows/PC (you can ignore this warning)."
+        )
 
 
 # ─── Main ────────────────────────────────────────────────────────────────────
