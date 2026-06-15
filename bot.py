@@ -742,9 +742,36 @@ async def job_check_sheet_refresh(context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Spreadsheet polling error: {e}")
 
 
+def start_ping_server():
+    import http.server
+    import socketserver
+    import threading
+    import os
+
+    class PingHandler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Bot is alive!")
+            
+        def log_message(self, format, *args):
+            # Suppress logs for basic pings
+            return
+
+    port = int(os.getenv("PORT", "8080"))
+    socketserver.TCPServer.allow_reuse_address = True
+    server = socketserver.TCPServer(("", port), PingHandler)
+    
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    logger.info(f"Started HTTP ping server on port {port} to keep the bot alive on Render Free Tier.")
+
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main():
+    start_ping_server()
     import asyncio
     try:
         loop = asyncio.get_event_loop()
