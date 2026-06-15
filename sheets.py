@@ -83,8 +83,20 @@ def date_to_week(date_str: str) -> str:
     return "Unknown Week"
 
 
+import json
+
+
 def _get_client() -> gspread.Client:
     """Authenticate and return a gspread client."""
+    creds_json = os.getenv("GOOGLE_CREDS_JSON")
+    if creds_json:
+        try:
+            info = json.loads(creds_json)
+            creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+            return gspread.authorize(creds)
+        except Exception as e:
+            logger.error(f"Failed to authenticate using GOOGLE_CREDS_JSON env var: {e}")
+            
     creds = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=SCOPES)
     return gspread.authorize(creds)
 
