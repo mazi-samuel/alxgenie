@@ -58,7 +58,19 @@ def init_db():
                 PRIMARY KEY (email, course)
             )
         """)
+
+        # Table to track active group members
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS tracked_users (
+                user_id      INTEGER PRIMARY KEY,
+                username     TEXT,
+                first_name   TEXT,
+                last_name    TEXT,
+                last_seen    TEXT NOT NULL
+            )
+        """)
         conn.commit()
+
 
 
 def add_feed(
@@ -175,3 +187,38 @@ def mark_graduate_processed(email: str, course: str):
             (email.strip().lower(), course.strip().lower(), datetime.utcnow().isoformat()),
         )
         conn.commit()
+
+
+# ─── Tracked Group Members Helpers ─────────────────────────────────────────
+
+def upsert_user(user_id: int, username: Optional[str], first_name: str, last_name: Optional[str]):
+    """Insert or update a tracked group member with the current timestamp."""
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO tracked_users (user_id, username, first_name, last_name, last_seen)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                username=excluded.username,
+                first_name=excluded.first_name,
+                last_name=excluded.last_name,
+                last_seen=excluded.last_seen
+            """,
+            (
+                user_id,
+                username.strip() if username else None,
+                first_name.strip() if first_name else "",
+                last_name.strip() if last_name else None,
+                datetime.utcnow().isoformat(),
+            ),
+        )
+        conn.commit()
+
+
+def get_tracked_users() -> list[sqlite3.Row]:
+    """Retrieve all tracked users in the database."""
+    with _connect() as conn:
+        return conn.execute(
+            "SELECT user_id, username, first_name, last_name FROM tracked_users ORDER BY last_seen DESC"
+        ).fetchall()
+

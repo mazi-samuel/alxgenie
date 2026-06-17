@@ -50,6 +50,86 @@ async def _admin_only(update: Update) -> bool:
     return True
 
 
+# ─── User Tracking ───────────────────────────────────────────────────────────
+
+async def track_user_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Global handler to track active users from messages and status updates."""
+    # 1. Track the sender of the message/action
+    user = update.effective_user
+    if user and not user.is_bot:
+        try:
+            db.upsert_user(
+                user_id=user.id,
+                username=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name,
+            )
+        except Exception as e:
+            logger.error(f"Failed to track user {user.id}: {e}")
+
+    # 2. Track new members who joined the group
+    if update.message and update.message.new_chat_members:
+        for member in update.message.new_chat_members:
+            if not member.is_bot:
+                try:
+                    db.upsert_user(
+                        user_id=member.id,
+                        username=member.username,
+                        first_name=member.first_name,
+                        last_name=member.last_name,
+                    )
+                    logger.info(f"Tracked newly joined user {member.id} ({member.first_name})")
+                except Exception as e:
+                    logger.error(f"Failed to track joined user {member.id}: {e}")
+
+
+# ─── /tagall (admin only) ───────────────────────────────────────────────────
+
+async def cmd_tag_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mentions all tracked users in the group (Admin-only)."""
+    if not await _admin_only(update):
+        return
+
+    chat_id = update.effective_chat.id
+    try:
+        users = db.get_tracked_users()
+        if not users:
+            await update.message.reply_text("ℹ️ No tracked users found in database yet\\.", parse_mode=ParseMode.MARKDOWN_V2)
+            return
+
+        mentions = []
+        for u in users:
+            user_id = u["user_id"]
+            username = u["username"]
+            first_name = u["first_name"]
+            
+            if username:
+                mentions.append(f"@{fmt._escape(username)}")
+            else:
+                escaped_name = fmt._escape(first_name)
+                mentions.append(f"[{escaped_name}](tg://user?id={user_id})")
+
+        # Telegram limits the number of mentions that can reliably trigger notifications.
+        # Batching 10 per message is safe and avoids spam/notification limits.
+        BATCH_SIZE = 10
+        
+        await update.message.reply_text(f"📣 *Tagging all {len(users)} tracked members in this group:*", parse_mode=ParseMode.MARKDOWN_V2)
+        
+        for i in range(0, len(mentions), BATCH_SIZE):
+            batch = mentions[i : i + BATCH_SIZE]
+            batch_text = " ".join(batch)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=batch_text,
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+            
+    except Exception as e:
+        logger.error(f"/tagall error: {e}")
+        await update.message.reply_text(f"❌ Error: {fmt._escape(str(e))}", parse_mode=ParseMode.MARKDOWN_V2)
+
+
+
 # ─── Helper: send long messages in chunks ────────────────────────────────────
 
 async def _send(context: ContextTypes.DEFAULT_TYPE, chat_id, text: str, parse_mode=ParseMode.MARKDOWN_V2):
@@ -83,6 +163,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• /schedule — Schedule a post to the channel\n"
             "• /listfeeds — View all scheduled posts\n"
             "• /deletefeed \\[id\\] — Cancel a scheduled post\n"
+            "• /tagall — Tag all tracked group members\n"
         )
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN_V2)
 
@@ -818,6 +899,9 @@ def main():
     # Spreadsheet polling checker — every 300 seconds (5 minutes)
     jq.run_repeating(job_check_sheet_refresh, interval=300, first=15, name="sheet_checker")
 
+    # ── User tracking handler (group -1 to run for all messages) ──
+    app.add_handler(MessageHandler(filters.ALL, track_user_update), group=-1)
+
     # ── Command handlers ──
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("courses", cmd_courses))
@@ -827,6 +911,7 @@ def main():
     app.add_handler(CommandHandler("postweekly", cmd_post_weekly))
     app.add_handler(CommandHandler("listfeeds", cmd_list_feeds))
     app.add_handler(CommandHandler("deletefeed", cmd_delete_feed))
+    app.add_handler(CommandHandler("tagall", cmd_tag_all))
 
     # Schedule conversation wizard
     schedule_conv = ConversationHandler(
