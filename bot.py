@@ -493,7 +493,7 @@ async def schedule_got_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Recurring post
         await query.edit_message_text(
             "🔁 *Step 3/4: Enter the days of the week*\n\n"
-            "Enter comma-separated days (e.g. `mon, wed, fri`) or type `daily`:",
+            "Enter comma\\-separated days \\(e\\.g\\. `mon, wed, fri`\\) or type `daily`:",
             parse_mode=ParseMode.MARKDOWN_V2,
         )
         return SCHEDULE_DAYS
