@@ -828,6 +828,8 @@ def start_ping_server():
     import socketserver
     import threading
     import os
+    import urllib.request
+    import time
 
     class PingHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
@@ -852,6 +854,25 @@ def start_ping_server():
             f"Could not start HTTP ping server on port {port}: {e}. "
             "This is normal when running locally on Windows/PC (you can ignore this warning)."
         )
+
+    # Background self-ping thread to prevent Render Free Tier from sleeping
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    if render_url:
+        def self_ping():
+            logger.info(f"Starting self-ping background loop targeting: {render_url}")
+            time.sleep(60)  # Wait 1 minute after start to let server bind
+            while True:
+                try:
+                    req = urllib.request.Request(render_url, headers={'User-Agent': 'ALXGenieKeepAlive/1.0'})
+                    with urllib.request.urlopen(req, timeout=15) as response:
+                        response.read()
+                    logger.info("Self-ping successful. Kept awake!")
+                except Exception as e:
+                    logger.warning(f"Self-ping failed: {e}")
+                time.sleep(600)  # Ping every 10 minutes (600 seconds)
+
+        t_ping = threading.Thread(target=self_ping, daemon=True)
+        t_ping.start()
 
 
 # ─── Main ────────────────────────────────────────────────────────────────────
