@@ -86,24 +86,38 @@ def date_to_week(date_str: str) -> str:
 import json
 
 
+_client = None
+_spreadsheet = None
+
+
 def _get_client() -> gspread.Client:
-    """Authenticate and return a gspread client."""
+    """Authenticate and return a cached gspread client."""
+    global _client
+    if _client is not None:
+        return _client
+
     creds_json = os.getenv("GOOGLE_CREDS_JSON")
     if creds_json:
         try:
             info = json.loads(creds_json)
             creds = Credentials.from_service_account_info(info, scopes=SCOPES)
-            return gspread.authorize(creds)
+            _client = gspread.authorize(creds)
+            return _client
         except Exception as e:
             logger.error(f"Failed to authenticate using GOOGLE_CREDS_JSON env var: {e}")
             
     creds = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=SCOPES)
-    return gspread.authorize(creds)
+    _client = gspread.authorize(creds)
+    return _client
 
 
 def _get_spreadsheet() -> gspread.Spreadsheet:
+    global _spreadsheet
+    if _spreadsheet is not None:
+        return _spreadsheet
     client = _get_client()
-    return client.open_by_key(Config.SHEET_ID)
+    _spreadsheet = client.open_by_key(Config.SHEET_ID)
+    return _spreadsheet
 
 
 # ─── Column helpers ──────────────────────────────────────────────────────────
